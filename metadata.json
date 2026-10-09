@@ -1,0 +1,6 @@
+{
+  "name": "TestGenie - AI Test Case Generator",
+  "description": "An AI-powered unit test case generator and Pytest sandbox runner for student coding assignments, featuring Normal, Boundary, and Edge case analysis with execution metrics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
