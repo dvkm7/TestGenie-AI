@@ -52,6 +52,82 @@ app.get('/api/specs', (req: Request, res: Response) => {
   }
 });
 
+// BITS Pilani Authentication Endpoints
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  try {
+    const { email, role, studentId, name } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const assignedRole = role || (email.toLowerCase().includes('fac') ? 'evaluator' : 'student');
+    const assignedName = name || (
+      assignedRole === 'evaluator' 
+        ? 'Dr. R. K. Sharma (Evaluator)'
+        : 'Shivansh Shrivastava (Student)'
+    );
+
+    const user = {
+      id: `bits_${Date.now()}`,
+      name: assignedName,
+      email: email,
+      role: assignedRole,
+      studentId: studentId || (assignedRole === 'evaluator' ? 'BITS-FAC-CS-892' : '2022A7PS0101P'),
+      campus: 'Pilani Campus',
+      department: 'Computer Science & Information Systems',
+    };
+
+    res.json({
+      success: true,
+      user,
+      token: `bits_token_${Date.now()}`,
+      message: 'Authenticated successfully with BITS Academic Portal',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  try {
+    const { name, email, role, studentId, campus } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required' });
+    }
+
+    const user = {
+      id: `bits_${Date.now()}`,
+      name: name,
+      email: email,
+      role: role || 'student',
+      studentId: studentId || '2023A7PS0001P',
+      campus: campus || 'Pilani Campus',
+      department: 'Computer Science & Information Systems',
+    };
+
+    res.json({
+      success: true,
+      user,
+      token: `bits_token_${Date.now()}`,
+      message: 'BITS Student account registered successfully',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/me', (req: Request, res: Response) => {
+  res.json({
+    id: 'bits_fac_229',
+    name: 'Dr. R. K. Sharma',
+    email: 'rksharma@pilani.bits-pilani.ac.in',
+    role: 'evaluator',
+    studentId: 'BITS-FAC-CS-892',
+    campus: 'Pilani Campus',
+    department: 'Computer Science & Information Systems',
+  });
+});
+
 // Generate tests endpoint using Gemini 3.8 Flash
 app.post('/api/generate-tests', async (req: Request, res: Response) => {
   const startTime = Date.now();

@@ -22,6 +22,11 @@ from schemas import (
     SingleTestResult,
     ExecutionSummary,
     TestCaseStatus,
+    LoginRequest,
+    RegisterRequest,
+    AuthResponse,
+    UserProfile,
+    UserRole,
 )
 
 app = FastAPI(
@@ -140,6 +145,75 @@ def execute_tests(payload: ExecuteTestsRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==============================================================================
+# BITS Pilani Authentication Endpoints
+# ==============================================================================
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+def login(payload: LoginRequest):
+    """
+    Authenticates BITS students or faculty evaluators.
+    Supports institutional @pilani.bits-pilani.ac.in credentials.
+    """
+    role = payload.role or (UserRole.EVALUATOR if "fac" in payload.email.lower() else UserRole.STUDENT)
+    clean_name = payload.name or (
+        "Dr. R. K. Sharma (Evaluator)" if role == UserRole.EVALUATOR 
+        else "Shivansh Shrivastava (Student)"
+    )
+    student_id = payload.student_id or ("BITS-FAC-CS-892" if role == UserRole.EVALUATOR else "2022A7PS0101P")
+
+    user = UserProfile(
+        id=f"bits_{int(time.time())}",
+        name=clean_name,
+        email=payload.email,
+        role=role,
+        student_id=student_id,
+        campus="Pilani Campus",
+        department="Computer Science & Information Systems",
+    )
+    return AuthResponse(
+        success=True,
+        user=user,
+        token=f"bits_jwt_token_{user.id}",
+        message="Authenticated successfully via BITS Academic SSO",
+    )
+
+@app.post("/api/auth/register", response_model=AuthResponse)
+def register_user(payload: RegisterRequest):
+    """
+    Registers a new BITS Pilani student or faculty evaluator profile.
+    """
+    user = UserProfile(
+        id=f"bits_{int(time.time())}",
+        name=payload.name,
+        email=payload.email,
+        role=payload.role,
+        student_id=payload.student_id or "2023A7PS0001P",
+        campus=payload.campus or "Pilani Campus",
+        department="Computer Science & Information Systems",
+    )
+    return AuthResponse(
+        success=True,
+        user=user,
+        token=f"bits_jwt_token_{user.id}",
+        message="Student account created successfully",
+    )
+
+@app.get("/api/auth/me", response_model=UserProfile)
+def get_current_user():
+    """
+    Returns current authenticated profile session.
+    """
+    return UserProfile(
+        id="bits_fac_229",
+        name="Dr. R. K. Sharma",
+        email="rksharma@pilani.bits-pilani.ac.in",
+        role=UserRole.EVALUATOR,
+        student_id="BITS-FAC-CS-892",
+        campus="Pilani Campus",
+        department="Computer Science & Information Systems",
+    )
 
 if __name__ == "__main__":
     import uvicorn

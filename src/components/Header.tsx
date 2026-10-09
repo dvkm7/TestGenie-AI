@@ -9,10 +9,15 @@ import {
   ChevronDown, 
   CheckCircle2,
   RefreshCw,
-  Calendar
+  Calendar,
+  User as UserIcon,
+  LogOut,
+  LogIn,
+  GraduationCap
 } from 'lucide-react';
 import { PRESETS } from '../data/presets';
 import { CodePreset } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   currentPresetId: string;
@@ -39,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRunAll,
   testsCount,
 }) => {
+  const { user, isAuthenticated, logout, openAuthModal } = useAuth();
   return (
     <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-6 py-3">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
@@ -167,6 +173,60 @@ export const Header: React.FC<HeaderProps> = ({
               </>
             )}
           </button>
+
+          {/* User Profile / BITS Authentication Section */}
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
+              <div 
+                className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-750 px-2.5 py-1 rounded-lg border border-slate-700/80 text-xs transition-colors cursor-pointer group"
+                onClick={() => openAuthModal('Manage your BITS Academic Profile')}
+                title={`${user.name} (${user.email}) - ${user.campus || 'Pilani Campus'}`}
+              >
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  user.role === 'evaluator' 
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' 
+                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/50'
+                }`}>
+                  {user.role === 'evaluator' ? (
+                    <GraduationCap className="w-3 h-3 text-amber-400" />
+                  ) : (
+                    <UserIcon className="w-3 h-3 text-indigo-400" />
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-left">
+                  <span className="font-semibold text-slate-200 text-xs">
+                    {user.name.split(' ')[0]}
+                  </span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-medium ${
+                    user.role === 'evaluator'
+                      ? 'bg-amber-950/80 text-amber-300 border border-amber-700/60'
+                      : 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/60'
+                  }`}>
+                    {user.role === 'evaluator' ? 'BITS Faculty' : 'BITS Student'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={logout}
+                className="text-xs text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900/60 p-1.5 rounded-lg transition-colors"
+                title="Sign out of BITS Academic Portal"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center pl-2 border-l border-slate-800">
+              <button
+                onClick={() => openAuthModal('Sign in to record your test benchmarks and assignment grade')}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-950/90 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/70 flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                title="Sign In with BITS Institutional Account"
+              >
+                <LogIn className="w-3.5 h-3.5 text-indigo-400" />
+                <span>BITS Sign In</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

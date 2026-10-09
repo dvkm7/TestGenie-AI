@@ -82,3 +82,42 @@ class ExecuteTestsResponse(BaseModel):
     results: List[SingleTestResult]
     summary: ExecutionSummary
     raw_terminal_output: Optional[str] = None
+
+# ==============================================================================
+# BITS Pilani Authentication & User Session Schemas
+# ==============================================================================
+
+class UserRole(str, Enum):
+    STUDENT = "student"
+    EVALUATOR = "evaluator"
+
+class UserProfile(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: UserRole
+    student_id: Optional[str] = None
+    campus: Optional[str] = "Pilani Campus"
+    department: Optional[str] = "Computer Science & Information Systems"
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., description="BITS institutional email (@pilani.bits-pilani.ac.in)")
+    password: Optional[str] = None
+    role: Optional[UserRole] = UserRole.STUDENT
+    student_id: Optional[str] = None
+    name: Optional[str] = None
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: Optional[str] = None
+    role: UserRole
+    student_id: Optional[str] = None
+    campus: Optional[str] = "Pilani Campus"
+
+class AuthResponse(BaseModel):
+    success: bool
+    user: UserProfile
+    token: str
+    message: Optional[str] = None
+

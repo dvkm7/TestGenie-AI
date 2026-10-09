@@ -12,11 +12,15 @@ import { FastApiModal } from './components/FastApiModal';
 import { RubricInfoModal } from './components/RubricInfoModal';
 import { CustomTestModal } from './components/CustomTestModal';
 import { WeeklyReportsModal } from './components/WeeklyReportsModal';
+import { AuthModal } from './components/AuthModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { PRESETS } from './data/presets';
 import { TestCase, SingleTestResult, TestCategory, CodePreset, ExecutionSummary } from './types';
 import { AlertCircle, CheckCircle2, Sparkles, Terminal } from 'lucide-react';
 
-export default function App() {
+function TestGenieWorkspace() {
+  const { isAuthenticated, openAuthModal } = useAuth();
+
   // Preload binary_search preset on first load
   const [currentPreset, setCurrentPreset] = useState<CodePreset>(PRESETS[0]);
   const [code, setCode] = useState<string>(PRESETS[0].code);
@@ -102,6 +106,10 @@ Ready to execute test suite. Click "Run All" to begin.
 
   // Execute all tests
   const handleRunAll = async () => {
+    if (!isAuthenticated) {
+      openAuthModal('Please sign in with your BITS credentials to execute Pytest sandbox test suites');
+      return;
+    }
     if (tests.length === 0 || isRunningAll) return;
 
     setIsRunningAll(true);
@@ -164,6 +172,10 @@ Ready to execute test suite. Click "Run All" to begin.
 
   // Run a single test case
   const handleRunSingle = async (test: TestCase) => {
+    if (!isAuthenticated) {
+      openAuthModal('Please sign in with your BITS credentials to run individual unit tests');
+      return;
+    }
     setRunningTestIds((prev) => new Set(prev).add(test.id));
 
     try {
@@ -207,6 +219,10 @@ Ready to execute test suite. Click "Run All" to begin.
 
   // AI Test Generation
   const handleGenerateTests = async (selectedCategories: TestCategory[]) => {
+    if (!isAuthenticated) {
+      openAuthModal('Please sign in with your BITS credentials to generate AI unit tests');
+      return;
+    }
     if (!code.trim() || isGenerating) return;
 
     setIsGenerating(true);
@@ -417,6 +433,18 @@ ${tests.map((t) => `# [Category: ${t.category}] - ${t.description}\n${t.code}`).
           code.match(/def\s+([a-zA-Z0-9_]+)/)?.[1] || 'binary_search'
         }
       />
+
+      {/* BITS Pilani Authentication Modal */}
+      <AuthModal />
     </div>
   );
 }
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <TestGenieWorkspace />
+    </AuthProvider>
+  );
+}
+
