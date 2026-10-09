@@ -11,6 +11,7 @@ import { TerminalConsole } from './components/TerminalConsole';
 import { FastApiModal } from './components/FastApiModal';
 import { RubricInfoModal } from './components/RubricInfoModal';
 import { CustomTestModal } from './components/CustomTestModal';
+import { WeeklyReportsModal } from './components/WeeklyReportsModal';
 import { PRESETS } from './data/presets';
 import { TestCase, SingleTestResult, TestCategory, CodePreset, ExecutionSummary } from './types';
 import { AlertCircle, CheckCircle2, Sparkles, Terminal } from 'lucide-react';
@@ -45,6 +46,7 @@ Ready to execute unit tests. Click "Run All" or execute individual test cards.
   // Modals & Notifications
   const [isSpecsModalOpen, setIsSpecsModalOpen] = useState(false);
   const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
+  const [isWeeklyReportsModalOpen, setIsWeeklyReportsModalOpen] = useState(false);
   const [isCustomTestModalOpen, setIsCustomTestModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
@@ -331,6 +333,7 @@ ${tests.map((t) => `# [Category: ${t.category}] - ${t.description}\n${t.code}`).
         onSelectPreset={handleSelectPreset}
         onOpenSpecsModal={() => setIsSpecsModalOpen(true)}
         onOpenRubricModal={() => setIsRubricModalOpen(true)}
+        onOpenWeeklyReportsModal={() => setIsWeeklyReportsModalOpen(true)}
         onDownloadPytest={handleDownloadPytest}
         onResetCode={handleResetCode}
         isRunningAll={isRunningAll}
@@ -399,6 +402,11 @@ ${tests.map((t) => `# [Category: ${t.category}] - ${t.description}\n${t.code}`).
       <RubricInfoModal
         isOpen={isRubricModalOpen}
         onClose={() => setIsRubricModalOpen(false)}
+      />
+
+      <WeeklyReportsModal
+        isOpen={isWeeklyReportsModalOpen}
+        onClose={() => setIsWeeklyReportsModalOpen(false)}
       />
 
       <CustomTestModal

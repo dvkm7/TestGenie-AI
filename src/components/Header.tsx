@@ -8,7 +8,8 @@ import {
   BookOpen, 
   ChevronDown, 
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 import { PRESETS } from '../data/presets';
 import { CodePreset } from '../types';
@@ -18,6 +19,7 @@ interface HeaderProps {
   onSelectPreset: (preset: CodePreset) => void;
   onOpenSpecsModal: () => void;
   onOpenRubricModal: () => void;
+  onOpenWeeklyReportsModal: () => void;
   onDownloadPytest: () => void;
   onResetCode: () => void;
   isRunningAll: boolean;
@@ -30,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectPreset,
   onOpenSpecsModal,
   onOpenRubricModal,
+  onOpenWeeklyReportsModal,
   onDownloadPytest,
   onResetCode,
   isRunningAll,
@@ -124,6 +127,16 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <BookOpen className="w-3.5 h-3.5 text-slate-400" />
             <span className="hidden sm:inline">Rubric</span>
+          </button>
+
+          {/* Weekly Documentation Reports */}
+          <button
+            onClick={onOpenWeeklyReportsModal}
+            className="text-xs text-amber-300 hover:text-amber-200 bg-amber-950/70 hover:bg-amber-900/80 border border-amber-700/60 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm"
+            title="Weekly Documentation Reports (Week 01 to Week 08)"
+          >
+            <Calendar className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Weekly Reports</span>
           </button>
 
           {/* Download Pytest File */}
