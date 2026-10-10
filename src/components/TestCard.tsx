@@ -91,7 +91,7 @@ export const TestCard: React.FC<TestCardProps> = ({
       className={`rounded-xl border transition-all duration-200 bg-slate-900/90 overflow-hidden shadow-sm hover:shadow-md ${
         result?.status === 'passed'
           ? 'border-emerald-800/40 hover:border-emerald-700/60'
-          : result?.status === 'failed'
+          : result?.status === 'failed' || result?.status === 'error'
           ? 'border-rose-800/50 hover:border-rose-700/80 bg-rose-950/10'
           : result?.status === 'timed_out'
           ? 'border-amber-800/60 bg-amber-950/10'
@@ -138,11 +138,11 @@ export const TestCard: React.FC<TestCardProps> = ({
                   : `${result.execution_time_ms.toFixed(2)} ms`}
               </span>
             </div>
-          ) : result?.status === 'failed' ? (
+          ) : result?.status === 'failed' || result?.status === 'error' ? (
             <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-rose-950 text-rose-300 border border-rose-700">
                 <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                FAILED
+                {result.status === 'error' ? 'ERROR' : 'FAILED'}
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700">
                 <Clock className="w-3 h-3 text-rose-400" />

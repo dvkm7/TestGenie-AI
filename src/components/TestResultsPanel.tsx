@@ -65,7 +65,7 @@ export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
     if (statusFilter !== 'ALL') {
       const res = results[t.id];
       if (statusFilter === 'PASSED' && res?.status !== 'passed') return false;
-      if (statusFilter === 'FAILED' && res?.status !== 'failed') return false;
+      if (statusFilter === 'FAILED' && res?.status !== 'failed' && res?.status !== 'error' && res?.status !== 'timed_out') return false;
       if (statusFilter === 'PENDING' && res?.status && res?.status !== 'pending') return false;
     }
 
@@ -88,10 +88,20 @@ export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
 
   // Calculate pass rates
   const executedCount = Object.keys(results).length;
-  const passedCount = Object.values(results).filter((r) => r.status === 'passed').length;
-  const failedCount = Object.values(results).filter((r) => r.status === 'failed').length;
+  const passedCount = summary
+    ? summary.passed
+    : Object.values(results).filter((r) => r.status === 'passed').length;
+  const failedCount = summary
+    ? summary.failed
+    : Object.values(results).filter(
+        (r) => r.status === 'failed' || r.status === 'error' || r.status === 'timed_out'
+      ).length;
   const passPercentage =
-    executedCount > 0 ? Math.round((passedCount / tests.length) * 100) : 0;
+    summary && summary.total > 0
+      ? Math.round((summary.passed / summary.total) * 100)
+      : tests.length > 0
+      ? Math.round((passedCount / tests.length) * 100)
+      : 0;
 
   const handleCopyAllTests = async () => {
     try {

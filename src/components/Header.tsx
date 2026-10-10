@@ -180,14 +180,14 @@ export const Header: React.FC<HeaderProps> = ({
               <div 
                 className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-750 px-2.5 py-1 rounded-lg border border-slate-700/80 text-xs transition-colors cursor-pointer group"
                 onClick={() => openAuthModal('Manage your BITS Academic Profile')}
-                title={`${user.name} (${user.email}) - ${user.campus || 'Pilani Campus'}`}
+                title={`${user?.name || 'Academic User'} (${user?.email || 'N/A'}) - ${user?.campus || 'Pilani Campus'}`}
               >
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                  user.role === 'evaluator' 
+                  user?.role === 'evaluator' 
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' 
                     : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/50'
                 }`}>
-                  {user.role === 'evaluator' ? (
+                  {user?.role === 'evaluator' ? (
                     <GraduationCap className="w-3 h-3 text-amber-400" />
                   ) : (
                     <UserIcon className="w-3 h-3 text-indigo-400" />
@@ -195,14 +195,14 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 text-left">
                   <span className="font-semibold text-slate-200 text-xs">
-                    {user.name.split(' ')[0]}
+                    {user?.name ? user.name.split(' ')[0] : (user?.email ? user.email.split('@')[0] : 'Scholar')}
                   </span>
                   <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-medium ${
-                    user.role === 'evaluator'
+                    user?.role === 'evaluator'
                       ? 'bg-amber-950/80 text-amber-300 border border-amber-700/60'
                       : 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/60'
                   }`}>
-                    {user.role === 'evaluator' ? 'BITS Faculty' : 'BITS Student'}
+                    {user?.role === 'evaluator' ? 'BITS Faculty' : 'BITS Student'}
                   </span>
                 </div>
               </div>

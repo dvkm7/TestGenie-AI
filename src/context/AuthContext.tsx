@@ -61,9 +61,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...BITS_DEMO_ACCOUNTS.student,
+            ...parsed,
+            name: parsed.name || (parsed.email ? parsed.email.split('@')[0] : 'Shivansh Shrivastava'),
+            role: parsed.role || 'student',
+          };
+        }
       }
-      // Initial default: logged in as Shivansh (BITS Student) for seamless grading demonstration
       return BITS_DEMO_ACCOUNTS.student;
     } catch {
       return BITS_DEMO_ACCOUNTS.student;
@@ -108,20 +115,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name?: string;
   }): Promise<User> => {
     setIsLoading(true);
+    const cleanEmail = (credentials.email || 'student@pilani.bits-pilani.ac.in').trim();
+    const cleanRole: UserRole = credentials.role || (cleanEmail.toLowerCase().includes('fac') ? 'evaluator' : 'student');
+
     try {
       // Attempt backend call
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({
+          ...credentials,
+          email: cleanEmail,
+          role: cleanRole,
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.user) {
-          setUser(data.user);
+          const finalUser: User = {
+            ...data.user,
+            name: data.user.name || (cleanRole === 'evaluator' ? 'Dr. R. K. Sharma (Evaluator)' : 'BITS Student'),
+            role: data.user.role || cleanRole,
+          };
+          setUser(finalUser);
           closeAuthModal();
-          return data.user;
+          return finalUser;
         }
       }
     } catch (err) {
@@ -131,17 +150,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Client-side fallback authentication
-    const role: UserRole = credentials.role || (credentials.email.includes('fac') ? 'evaluator' : 'student');
+    const emailPrefix = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
     const derivedName =
       credentials.name ||
-      credentials.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      emailPrefix.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
     const fallbackUser: User = {
       id: `usr_${Date.now()}`,
-      name: derivedName || (role === 'evaluator' ? 'BITS Faculty Evaluator' : 'BITS Student'),
-      email: credentials.email,
-      role: role,
-      studentId: credentials.studentId || (role === 'student' ? '2023A7PS0442P' : 'BITS-FAC-0442'),
+      name: derivedName || (cleanRole === 'evaluator' ? 'BITS Faculty Evaluator' : 'BITS Student'),
+      email: cleanEmail,
+      role: cleanRole,
+      studentId: credentials.studentId || (cleanRole === 'student' ? '2023A7PS0442P' : 'BITS-FAC-0442'),
       campus: 'Pilani Campus',
       department: 'Computer Science & Software Systems (ZC229T)',
       token: `mock_jwt_${Date.now()}`,

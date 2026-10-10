@@ -61,13 +61,27 @@ export const AuthModal: React.FC = () => {
 
     try {
       if (activeTab === 'login') {
-        await login({ email, password, role, studentId });
+        const derivedName = name.trim() || undefined;
+        await login({ 
+          email: email.trim(), 
+          password, 
+          role, 
+          studentId: studentId.trim() || undefined,
+          name: derivedName 
+        });
       } else {
         if (!name.trim()) {
           setError('Please provide your full name.');
           return;
         }
-        await register({ name, email, password, role, studentId, campus });
+        await register({ 
+          name: name.trim(), 
+          email: email.trim(), 
+          password, 
+          role, 
+          studentId: studentId.trim() || undefined, 
+          campus 
+        });
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify credentials.');
