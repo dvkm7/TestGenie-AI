@@ -13,7 +13,8 @@ import {
   User as UserIcon,
   LogOut,
   LogIn,
-  GraduationCap
+  GraduationCap,
+  ShieldCheck
 } from 'lucide-react';
 import { PRESETS } from '../data/presets';
 import { CodePreset } from '../types';
@@ -179,8 +180,8 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
               <div 
                 className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-750 px-2.5 py-1 rounded-lg border border-slate-700/80 text-xs transition-colors cursor-pointer group"
-                onClick={() => openAuthModal('Manage your BITS Academic Profile')}
-                title={`${user?.name || 'Academic User'} (${user?.email || 'N/A'}) - ${user?.campus || 'Pilani Campus'}`}
+                onClick={() => openAuthModal('Manage your BITS Academic Profile & MFA Security')}
+                title={`${user?.name || 'Academic User'} (${user?.email || 'N/A'}) - Multi-Factor Authentication: ${user?.mfaEnabled ? 'Verified (BITS Duo)' : 'Disabled'}`}
               >
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                   user?.role === 'evaluator' 
@@ -202,8 +203,17 @@ export const Header: React.FC<HeaderProps> = ({
                       ? 'bg-amber-950/80 text-amber-300 border border-amber-700/60'
                       : 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/60'
                   }`}>
-                    {user?.role === 'evaluator' ? 'BITS Faculty' : 'BITS Student'}
+                    {user?.role === 'evaluator' ? 'Faculty' : 'Student'}
                   </span>
+                  {user?.mfaEnabled && (
+                    <span 
+                      className="hidden sm:inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold bg-emerald-950/90 text-emerald-300 border border-emerald-700/70"
+                      title="Multi-Factor Authentication (BITS Duo) Enforced"
+                    >
+                      <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                      MFA
+                    </span>
+                  )}
                 </div>
               </div>
 

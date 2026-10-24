@@ -64,6 +64,8 @@ export interface CodePreset {
 
 export type UserRole = 'student' | 'evaluator';
 
+export type MfaMethod = 'bits_duo' | 'email_otp' | 'authenticator';
+
 export interface User {
   id: string;
   name: string;
@@ -74,6 +76,11 @@ export interface User {
   department?: string;
   avatarUrl?: string;
   token?: string;
+  mfaEnabled?: boolean;
+  mfaMethod?: MfaMethod;
+  isMfaVerified?: boolean;
+  trustedDevice?: boolean;
+  lastMfaVerifiedAt?: string;
 }
 
 export interface AuthResponse {
