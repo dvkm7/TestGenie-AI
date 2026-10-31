@@ -13,7 +13,8 @@ import {
   Check,
   Terminal,
   Zap,
-  Filter
+  Filter,
+  Bug
 } from 'lucide-react';
 import { TestCase, SingleTestResult, TestCategory, ExecutionSummary } from '../types';
 import { TestCard } from './TestCard';
@@ -32,6 +33,8 @@ interface TestResultsPanelProps {
   totalDurationMs?: number;
   testSuiteTitle?: string;
   isGenerating: boolean;
+  onOpenMlTraceback?: (test?: TestCase, result?: SingleTestResult) => void;
+  onLoadDemoFailures?: () => void;
 }
 
 export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
@@ -48,6 +51,8 @@ export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
   totalDurationMs,
   testSuiteTitle,
   isGenerating,
+  onOpenMlTraceback,
+  onLoadDemoFailures,
 }) => {
   const [activeTab, setActiveTab] = useState<'ALL' | TestCategory>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -163,6 +168,19 @@ export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
               <span>Add Test</span>
             </button>
 
+            {onLoadDemoFailures && (
+              <button
+                type="button"
+                onClick={onLoadDemoFailures}
+                className="text-xs text-rose-300 hover:text-white bg-rose-950/80 hover:bg-rose-900 border border-rose-700/70 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm font-semibold cursor-pointer"
+                title="Simulate failed test cards to demonstrate ML Root Cause Analysis (RCA)"
+              >
+                <Bug className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden sm:inline">Demo Failed Tests (ML RCA)</span>
+                <span className="sm:hidden">Demo Failures</span>
+              </button>
+            )}
+
             <button
               onClick={onRunAll}
               disabled={isRunningAll || tests.length === 0}
@@ -223,6 +241,39 @@ export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
                 style={{ width: `${(failedCount / tests.length) * 100}%` }}
               ></div>
             </div>
+          </div>
+        )}
+
+        {/* ML Traceback & Auto-Fix Banner when any tests fail */}
+        {failedCount > 0 && onOpenMlTraceback && (
+          <div className="bg-gradient-to-r from-indigo-950/80 via-purple-950/60 to-slate-900 border border-indigo-700/60 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-lg shadow-indigo-950/50 animate-in fade-in">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-900/80 border border-indigo-600/50 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white tracking-tight">
+                    ML Traceback Assistant Available
+                  </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800">
+                    {failedCount} failing
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-200/90">
+                  Run Gemini 3.8 Flash ML to dissect failure tracebacks, diagnose root cause, and apply 1-click code repair.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenMlTraceback()}
+              className="w-full sm:w-auto text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950 flex-shrink-0 transition-all cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+              <span>Analyze Traceback & Auto-Fix</span>
+            </button>
           </div>
         )}
 
@@ -338,6 +389,7 @@ export const TestResultsPanel: React.FC<TestResultsPanelProps> = ({
               isRunning={runningTestIds.has(test.id)}
               onRunSingle={onRunSingle}
               onUpdateTestCode={onUpdateTestCode}
+              onOpenMlTraceback={onOpenMlTraceback}
             />
           ))
         )}

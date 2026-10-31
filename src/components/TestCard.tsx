@@ -12,7 +12,9 @@ import {
   Info,
   Terminal,
   RefreshCw,
-  Code2
+  Code2,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { TestCase, SingleTestResult, TestCategory } from '../types';
 
@@ -22,6 +24,7 @@ interface TestCardProps {
   isRunning: boolean;
   onRunSingle: (test: TestCase) => void;
   onUpdateTestCode?: (testId: string, newCode: string) => void;
+  onOpenMlTraceback?: (test: TestCase, result?: SingleTestResult) => void;
 }
 
 export const TestCard: React.FC<TestCardProps> = ({
@@ -30,6 +33,7 @@ export const TestCard: React.FC<TestCardProps> = ({
   isRunning,
   onRunSingle,
   onUpdateTestCode,
+  onOpenMlTraceback,
 }) => {
   const [copied, setCopied] = useState(false);
   const [showCode, setShowCode] = useState(true);
@@ -200,19 +204,33 @@ export const TestCard: React.FC<TestCardProps> = ({
         {/* Failure Details & Error Banner if failed */}
         {result?.status === 'failed' && (
           <div className="mt-2 rounded-lg bg-rose-950/40 border border-rose-800/60 p-2.5 space-y-2">
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 text-rose-300 font-mono text-xs font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
                 <span>{result.error_message || 'Assertion Error'}</span>
               </div>
-              {result.traceback && (
-                <button
-                  onClick={() => setShowErrorDetails(!showErrorDetails)}
-                  className="text-[11px] text-rose-400 hover:text-rose-200 underline flex-shrink-0"
-                >
-                  {showErrorDetails ? 'Hide Traceback' : 'View Traceback'}
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {onOpenMlTraceback && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenMlTraceback(test, result)}
+                    className="text-[11px] font-semibold text-cyan-300 hover:text-cyan-200 bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/70 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+                    title="Launch ML Traceback Diagnosis & Automated Program Repair"
+                  >
+                    <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
+                    <span>ML Traceback & Fix</span>
+                  </button>
+                )}
+                {result.traceback && (
+                  <button
+                    type="button"
+                    onClick={() => setShowErrorDetails(!showErrorDetails)}
+                    className="text-[11px] text-rose-400 hover:text-rose-200 underline flex-shrink-0"
+                  >
+                    {showErrorDetails ? 'Hide Traceback' : 'View Traceback'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {showErrorDetails && result.traceback && (

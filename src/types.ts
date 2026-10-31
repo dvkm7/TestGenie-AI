@@ -59,7 +59,21 @@ export interface CodePreset {
   context: string;
   code: string;
   buggyCode?: string;
+  categoryTag?: string;
   defaultTests: TestCase[];
+}
+
+export interface MlTracebackFeedback {
+  root_cause: string;
+  traceback_dissection: string;
+  feedback: string;
+  complexity_analysis?: string;
+  corrected_code: string;
+  diff_summary: string;
+  confidence_score?: number;
+  testName?: string;
+  errorMessage?: string;
+  traceback?: string;
 }
 
 export type UserRole = 'student' | 'evaluator';

@@ -31,6 +31,7 @@ interface HeaderProps {
   isRunningAll: boolean;
   onRunAll: () => void;
   testsCount: number;
+  onSelectCustomCode?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,6 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
   isRunningAll,
   onRunAll,
   testsCount,
+  onSelectCustomCode,
 }) => {
   const { user, isAuthenticated, logout, openAuthModal } = useAuth();
   return (
@@ -94,8 +96,8 @@ export const Header: React.FC<HeaderProps> = ({
                 const found = PRESETS.find((p) => p.id === e.target.value);
                 if (found) onSelectPreset(found);
               }}
-              className="appearance-none bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-medium py-1.5 pl-3 pr-8 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-sm transition-colors"
-              title="Select Sample Student Assignment"
+              className="appearance-none bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-medium py-1.5 pl-3 pr-8 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-sm transition-colors max-w-[220px] truncate"
+              title="Select Algorithm Assignment or Custom Code"
             >
               {PRESETS.map((preset) => (
                 <option key={preset.id} value={preset.id}>
@@ -105,6 +107,18 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
+
+          {/* Quick Custom Code Button */}
+          {onSelectCustomCode && currentPresetId !== 'custom_code' && (
+            <button
+              type="button"
+              onClick={onSelectCustomCode}
+              className="text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all font-semibold bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 hover:text-white border border-cyan-700/60 shadow-sm"
+              title="Open Custom Code Scratchpad to write any custom Python code"
+            >
+              <span>+ Custom Code</span>
+            </button>
+          )}
 
           {/* Reset Code */}
           <button

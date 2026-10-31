@@ -26,6 +26,9 @@ interface CodeEditorProps {
   isBuggyActive: boolean;
   onToggleBuggy: () => void;
   onResetToDefault: () => void;
+  onOpenMlTraceback?: () => void;
+  onSelectCustomCode?: () => void;
+  isCustomPreset?: boolean;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -39,6 +42,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   isBuggyActive,
   onToggleBuggy,
   onResetToDefault,
+  onOpenMlTraceback,
+  onSelectCustomCode,
+  isCustomPreset,
 }) => {
   const [copiedCode, setCopiedCode] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<TestCategory[]>([
@@ -100,10 +106,39 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             <Code2 className="w-3.5 h-3.5 text-indigo-400" />
             <span>solution.py</span>
           </div>
-          <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">Python 3.10</span>
+          {isCustomPreset ? (
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 shadow-sm hidden sm:inline">
+              Custom Mode
+            </span>
+          ) : (
+            <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">Python 3.10</span>
+          )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {onSelectCustomCode && !isCustomPreset && (
+            <button
+              type="button"
+              onClick={onSelectCustomCode}
+              className="text-xs px-2.5 py-1 rounded-md flex items-center gap-1 transition-all font-medium bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700"
+              title="Create arbitrary custom code apart from preloaded templates"
+            >
+              <span>+ Custom Code</span>
+            </button>
+          )}
+
+          {onOpenMlTraceback && (
+            <button
+              type="button"
+              onClick={onOpenMlTraceback}
+              className="text-xs px-2.5 py-1 rounded-md flex items-center gap-1.5 transition-all font-medium bg-indigo-950 text-cyan-300 hover:text-white border border-indigo-700/70 shadow-sm shadow-indigo-950 hover:bg-indigo-900 cursor-pointer"
+              title="Launch ML Traceback Diagnosis & Automated Program Repair"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>ML Fix</span>
+            </button>
+          )}
+
           {hasBuggyOption && (
             <button
               onClick={onToggleBuggy}
@@ -115,7 +150,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               title="Toggle intentionally buggy code to demonstrate test runner catching logic errors"
             >
               <Bug className={`w-3.5 h-3.5 ${isBuggyActive ? 'text-rose-400' : 'text-slate-400'}`} />
-              <span>{isBuggyActive ? 'Buggy Code Active' : 'Test with Bug'}</span>
+              <span>{isBuggyActive ? 'Buggy' : 'Test Bug'}</span>
             </button>
           )}
 

@@ -10,7 +10,8 @@ import {
   Minimize2,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Sparkles
 } from 'lucide-react';
 
 interface TerminalConsoleProps {
@@ -18,6 +19,7 @@ interface TerminalConsoleProps {
   onClear: () => void;
   isRunning: boolean;
   totalDurationMs?: number;
+  onOpenMlTraceback?: () => void;
 }
 
 export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
@@ -25,6 +27,7 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
   onClear,
   isRunning,
   totalDurationMs,
+  onOpenMlTraceback,
 }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -78,6 +81,18 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
 
         {isOpen && (
           <div className="flex items-center gap-2">
+            {onOpenMlTraceback && (output.includes('FAILED') || output.includes('Error') || output.includes('Traceback') || output.includes('AssertionError')) && (
+              <button
+                type="button"
+                onClick={onOpenMlTraceback}
+                className="text-[11px] font-semibold text-cyan-300 hover:text-white bg-indigo-950 hover:bg-indigo-900 border border-indigo-700/70 px-2 py-0.5 rounded flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                title="Diagnose traceback with Machine Learning"
+              >
+                <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
+                <span>ML Traceback Diagnosis</span>
+              </button>
+            )}
+
             <button
               onClick={handleCopy}
               className="text-xs text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition-colors"
