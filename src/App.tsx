@@ -239,7 +239,7 @@ Ready to execute test suite. Click "Run All" to begin.
     try {
       let data;
       try {
-        const response = await fetch('/api/execute-tests', {
+        const response = await fetch('/api/run-tests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -249,6 +249,7 @@ Ready to execute test suite. Click "Run All" to begin.
               name: t.name,
               code: t.code,
             })),
+            timeoutSeconds: 3.0,
           }),
         });
 
@@ -258,7 +259,7 @@ Ready to execute test suite. Click "Run All" to begin.
         }
       } catch (serverErr: any) {
         console.warn('Backend subprocess execution notice, activating in-engine Pytest sandbox runner:', serverErr);
-        data = executePythonTestSuiteLocally({ code: activeCode, tests });
+        data = executePythonTestSuiteLocally({ code: activeCode, tests, timeoutSeconds: 3.0 });
       }
 
       const newResultsMap: Record<string, SingleTestResult> = {};
@@ -340,6 +341,7 @@ Ready to execute test suite. Click "Run All" to begin.
       .map((t) => ({
         name: t.name,
         error_message: results[t.id]?.error_message || 'AssertionError',
+        traceback: results[t.id]?.traceback || '',
       }));
 
     try {
@@ -376,6 +378,9 @@ Ready to execute test suite. Click "Run All" to begin.
           traceback_dissection: data.traceback_dissection,
           feedback: data.feedback,
           complexity_analysis: data.complexity_analysis,
+          student_complexity: data.student_complexity,
+          patched_complexity: data.patched_complexity,
+          aggregated_failures: data.aggregated_failures,
           corrected_code: data.corrected_code,
           diff_summary: data.diff_summary,
           confidence_score: data.confidence_score,
@@ -401,7 +406,27 @@ Ready to execute test suite. Click "Run All" to begin.
           : `Logic mismatch detected during Pytest execution (${resultToAnalyze?.error_message || 'AssertionError'}). Boundary conditions or loop termination indices need verification.`,
         traceback_dissection: resultToAnalyze?.traceback || 'AssertionError: assert condition failed in pytest runner.',
         feedback: 'BITS Pilani Evaluator Guidance: In zero-indexed collections of size N, ensure loop bounds encompass all elements up to N-1. Check edge cases including empty arrays and extreme values.',
-        complexity_analysis: 'Time Complexity: O(log n); Auxiliary Space: O(1).',
+        complexity_analysis: isOffByOne
+          ? 'Student Buggy: O(log n) time, O(1) space (truncated right bound) | ML Patched: O(log n) time, O(1) space (full index coverage)'
+          : 'Student Buggy: O(N) | ML Patched: O(N) with validated bounds.',
+        student_complexity: {
+          time: isOffByOne ? 'O(log n)' : 'O(N)',
+          space: 'O(1)',
+          explanation: isOffByOne ? 'Search truncated at len(arr) - 2' : 'Boundary mismatch',
+        },
+        patched_complexity: {
+          time: isOffByOne ? 'O(log n)' : 'O(N)',
+          space: 'O(1)',
+          explanation: isOffByOne ? 'Searches full array up to len(arr) - 1' : 'Valid bounds verified',
+        },
+        aggregated_failures: [
+          {
+            exception_type: 'AssertionError',
+            count: allFailures.length || 1,
+            affected_tests: allFailures.map((f) => f.name),
+            sample_message: resultToAnalyze?.error_message || 'AssertionError: assert condition failed',
+          },
+        ],
         corrected_code: corrected,
         diff_summary: isOffByOne
           ? 'Corrected boundary pointer from right = len(arr) - 2 to right = len(arr) - 1.'
@@ -416,12 +441,15 @@ Ready to execute test suite. Click "Run All" to begin.
     }
   };
 
-  // Apply ML Correction and immediately re-run tests
+  // Apply ML Correction and immediately re-run tests asynchronously
   const handleApplyMlCorrection = (correctedCode: string) => {
     setCode(correctedCode);
     setIsBuggyActive(false);
-    showToast('ML correction applied! Re-executing Pytest suite...', 'success');
-    handleRunAll(correctedCode);
+    showToast('⚡ ML auto-patch applied! Re-running Pytest suite...', 'success');
+    // Immediate asynchronous re-run so failing test cards turn green instantly
+    setTimeout(() => {
+      handleRunAll(correctedCode);
+    }, 30);
   };
 
   // Switch directly to Custom Code mode

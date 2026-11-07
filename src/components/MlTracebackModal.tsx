@@ -156,6 +156,36 @@ export const MlTracebackModal: React.FC<MlTracebackModalProps> = ({
                 )}
               </div>
 
+              {/* Smart Failure Aggregation Banner */}
+              {feedback.aggregated_failures && feedback.aggregated_failures.length > 0 && (
+                <div className="rounded-xl bg-purple-950/30 border border-purple-800/50 p-3 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 text-purple-200 font-semibold">
+                      <Layers className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Smart Failure Aggregation ({feedback.aggregated_failures.reduce((acc, g) => acc + g.count, 0)} Tests Grouped)</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-purple-300 bg-purple-900/60 px-2 py-0.5 rounded border border-purple-700/50">
+                      Single Diagnostic Dispatch
+                    </span>
+                  </div>
+                  {feedback.aggregated_failures.map((group, idx) => (
+                    <div key={idx} className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-300">
+                      <span className="font-mono text-rose-300 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-900">
+                        {group.exception_type} ({group.count} {group.count === 1 ? 'test' : 'tests'})
+                      </span>
+                      <span className="text-slate-400">Affected:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {group.affected_tests.map((tName) => (
+                          <code key={tName} className="font-mono text-[10px] text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded">
+                            {tName}
+                          </code>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Step 1: Root Cause & Pedagogical Feedback */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Root Cause Card */}
@@ -178,12 +208,62 @@ export const MlTracebackModal: React.FC<MlTracebackModalProps> = ({
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {feedback.feedback}
                   </p>
-                  {feedback.complexity_analysis && (
-                    <div className="text-[11px] text-slate-400 pt-1 font-mono border-t border-slate-800/60">
-                      ⚡ {feedback.complexity_analysis}
-                    </div>
-                  )}
                 </div>
+              </div>
+
+              {/* Step 1.5: Algorithmic Complexity Profiling (Buggy vs Patched) */}
+              <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-teal-300">
+                    <Cpu className="w-3.5 h-3.5 text-teal-400" />
+                    <span>Algorithmic Complexity Profiling ($O(N)$ vs $O(N \log N)$)</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Big-O Asymptotic Analysis
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-lg bg-rose-950/20 border border-rose-900/40 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-rose-300">Student Buggy Submission</span>
+                      <span className="font-mono text-[11px] text-rose-400 font-bold">
+                        {feedback.student_complexity?.time || 'O(N)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-snug">
+                      {feedback.student_complexity?.explanation || 'Unchecked boundary condition'}
+                    </p>
+                    {feedback.student_complexity?.space && (
+                      <span className="inline-block text-[10px] font-mono text-slate-400">
+                        Auxiliary Space: {feedback.student_complexity.space}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-900/40 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-emerald-300">Proposed ML Patch</span>
+                      <span className="font-mono text-[11px] text-emerald-400 font-bold">
+                        {feedback.patched_complexity?.time || 'O(N)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-snug">
+                      {feedback.patched_complexity?.explanation || 'Optimal asymptotic bounds maintained'}
+                    </p>
+                    {feedback.patched_complexity?.space && (
+                      <span className="inline-block text-[10px] font-mono text-slate-400">
+                        Auxiliary Space: {feedback.patched_complexity.space}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {feedback.complexity_analysis && (
+                  <div className="text-[11px] text-cyan-300/90 font-mono pt-1 border-t border-slate-800/60">
+                    ⚡ {feedback.complexity_analysis}
+                  </div>
+                )}
               </div>
 
               {/* Step 2: What was changed (Diff summary) */}

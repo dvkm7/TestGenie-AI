@@ -63,11 +63,27 @@ export interface CodePreset {
   defaultTests: TestCase[];
 }
 
+export interface AggregatedFailureGroup {
+  exception_type: string;
+  count: number;
+  affected_tests: string[];
+  sample_message: string;
+}
+
+export interface ComplexityProfile {
+  time: string;
+  space: string;
+  explanation?: string;
+}
+
 export interface MlTracebackFeedback {
   root_cause: string;
   traceback_dissection: string;
   feedback: string;
   complexity_analysis?: string;
+  student_complexity?: ComplexityProfile;
+  patched_complexity?: ComplexityProfile;
+  aggregated_failures?: AggregatedFailureGroup[];
   corrected_code: string;
   diff_summary: string;
   confidence_score?: number;
