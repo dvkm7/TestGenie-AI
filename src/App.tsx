@@ -225,7 +225,7 @@ Ready to execute test suite. Click "Run All" to begin.
 
   // Execute all tests
   const handleRunAll = async (codeOverride?: string) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !codeOverride) {
       openAuthModal('Please sign in with your BITS credentials to execute Pytest sandbox test suites');
       return;
     }

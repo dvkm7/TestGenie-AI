@@ -18,10 +18,23 @@ function _py_len(x) {
   return 0;
 }
 
+function _py_bool(x) {
+  if (!x) return false;
+  if (typeof x === 'string' || Array.isArray(x)) return x.length > 0;
+  if (typeof x === 'object') return Object.keys(x).length > 0;
+  return Boolean(x);
+}
+
 function _py_get(arr, idx) {
   if (!arr) return undefined;
   if (idx < 0) idx = arr.length + idx;
   return arr[idx];
+}
+
+function _py_set(arr, idx, val) {
+  if (!arr) return;
+  if (idx < 0) idx = arr.length + idx;
+  arr[idx] = val;
 }
 
 function _py_slice(seq, start, stop, step) {
@@ -97,6 +110,30 @@ function _py_min(...args) {
   if (args.length === 1 && Array.isArray(args[0])) return Math.min(...args[0]);
   return Math.min(...args);
 }
+
+function _py_sorted(arr) {
+  if (!arr) return [];
+  return Array.from(arr).slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+function _py_contains(container, item) {
+  if (container === null || container === undefined) return false;
+  if (Array.isArray(container)) {
+    return container.some((x) => _py_equals(x, item));
+  }
+  if (typeof container === 'string') {
+    return container.includes(String(item));
+  }
+  if (typeof container === 'object') {
+    return Object.prototype.hasOwnProperty.call(container, item);
+  }
+  return false;
+}
+
+function _py_sum(arr, start = 0) {
+  if (!arr) return start;
+  return Array.from(arr).reduce((acc, curr) => acc + curr, start);
+}
 `;
 
 /**
@@ -106,15 +143,28 @@ export function transpilePythonToJs(pythonCode: string): string {
   const lines = pythonCode.split('\n');
   const jsLines: string[] = [];
   const indentStack: number[] = [0];
+  let inFunction = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
 
-    // Strip comments
+    // Strip comments, strictly respecting string literals ('...' and "...")
     let line = rawLine;
-    const commentIdx = line.indexOf('#');
+    let inSingle = false;
+    let inDouble = false;
+    let commentIdx = -1;
+    for (let c = 0; c < rawLine.length; c++) {
+      const ch = rawLine[c];
+      const prev = c > 0 ? rawLine[c - 1] : '';
+      if (ch === "'" && prev !== '\\' && !inDouble) inSingle = !inSingle;
+      else if (ch === '"' && prev !== '\\' && !inSingle) inDouble = !inDouble;
+      else if (ch === '#' && !inSingle && !inDouble) {
+        commentIdx = c;
+        break;
+      }
+    }
     if (commentIdx !== -1) {
-      line = line.substring(0, commentIdx);
+      line = rawLine.substring(0, commentIdx);
     }
 
     // Skip empty lines
@@ -130,6 +180,7 @@ export function transpilePythonToJs(pythonCode: string): string {
     while (indentStack.length > 1 && indent < indentStack[indentStack.length - 1]) {
       indentStack.pop();
       jsLines.push(' '.repeat(indentStack[indentStack.length - 1]) + '}');
+      if (indentStack.length === 1) inFunction = false;
     }
 
     // Handle docstrings (triple quotes)
@@ -144,42 +195,63 @@ export function transpilePythonToJs(pythonCode: string): string {
       continue;
     }
 
-    let jsLine = content;
-
     // 1. Function definition: def name(args):
-    const defMatch = jsLine.match(/^def\s+([a-zA-Z0-9_]+)\s*\((.*?)\)(\s*->\s*[^:]+)?:$/);
+    const defMatch = content.match(/^def\s+([a-zA-Z0-9_]+)\s*\((.*?)\)(\s*->\s*[^:]+)?:$/);
     if (defMatch) {
+      inFunction = true;
       const funcName = defMatch[1];
       const rawParams = defMatch[2];
       // Strip Python type annotations e.g. "arr: list[int], target: int" -> "arr, target"
       const cleanParams = rawParams
         .split(',')
         .map((p) => p.split(':')[0].trim())
-        .filter(Boolean)
-        .join(', ');
+        .filter(Boolean);
+      const paramSet = new Set(cleanParams);
 
-      jsLines.push(' '.repeat(indent) + `function ${funcName}(${cleanParams}) {`);
+      // Pre-scan the function body to declare all locally assigned variables at function scope.
+      // This strictly prevents block-scoped 'let' shadowing in inner if/while blocks.
+      const localVars = new Set<string>();
+      for (let j = i + 1; j < lines.length; j++) {
+        const jIndent = lines[j].search(/\S/);
+        if (lines[j].trim() && jIndent <= indent) break;
+        const jContent = lines[j].trim();
+        const jAssign = jContent.match(/^([a-zA-Z0-9_]+)\s*=\s*(.*)$/);
+        if (jAssign && !jContent.startsWith('if') && !jContent.startsWith('elif')) {
+          if (!paramSet.has(jAssign[1])) localVars.add(jAssign[1]);
+        }
+        const jMulti = jContent.match(/^([a-zA-Z0-9_,\s]+)\s*=\s*(.*)$/);
+        if (jMulti && jMulti[1].includes(',')) {
+          jMulti[1].split(',').forEach((v) => {
+            const vName = v.trim();
+            if (vName && !paramSet.has(vName)) localVars.add(vName);
+          });
+        }
+      }
+
+      jsLines.push(' '.repeat(indent) + `function ${funcName}(${cleanParams.join(', ')}) {`);
       indentStack.push(indent + 4);
+      if (localVars.size > 0) {
+        jsLines.push(' '.repeat(indent + 4) + `let ${Array.from(localVars).join(', ')};`);
+      }
       continue;
     }
 
     // 2. Conditionals: if, elif, else
-    const ifMatch = jsLine.match(/^if\s+(.*?):$/);
+    const ifMatch = content.match(/^if\s+(.*?):$/);
     if (ifMatch) {
       jsLines.push(' '.repeat(indent) + `if (${convertPythonExprToJs(ifMatch[1])}) {`);
       indentStack.push(indent + 4);
       continue;
     }
 
-    const elifMatch = jsLine.match(/^elif\s+(.*?):$/);
+    const elifMatch = content.match(/^elif\s+(.*?):$/);
     if (elifMatch) {
-      // Close previous block if on same indent
       jsLines.push(' '.repeat(indent) + `else if (${convertPythonExprToJs(elifMatch[1])}) {`);
       indentStack.push(indent + 4);
       continue;
     }
 
-    const elseMatch = jsLine.match(/^else\s*:$/);
+    const elseMatch = content.match(/^else\s*:$/);
     if (elseMatch) {
       jsLines.push(' '.repeat(indent) + `else {`);
       indentStack.push(indent + 4);
@@ -187,20 +259,51 @@ export function transpilePythonToJs(pythonCode: string): string {
     }
 
     // 3. Loops: while condition:
-    const whileMatch = jsLine.match(/^while\s+(.*?):$/);
+    const whileMatch = content.match(/^while\s+(.*?):$/);
     if (whileMatch) {
+      jsLines.push(' '.repeat(indent) + `while (${convertPythonExprToJs(whileMatch[1])}) {`);
       jsLines.push(
-        ' '.repeat(indent) +
-          `while (${convertPythonExprToJs(whileMatch[1])}) {\n` +
-          ' '.repeat(indent + 2) +
-          `if (++__loop_iterations > 200000) throw new Error("Execution timed out: loop exceeded iteration limit (possible infinite while loop)");`
+        ' '.repeat(indent + 2) +
+          `if (++__loop_iterations > 1000000) throw new Error("Execution timed out: loop exceeded iteration limit (possible infinite while loop)");`
       );
       indentStack.push(indent + 4);
       continue;
     }
 
-    // 4. For loop: for item in items: or for i in range(...):
-    const forRangeMatch = jsLine.match(/^for\s+([a-zA-Z0-9_]+)\s+in\s+range\((.*?)\):$/);
+    // 4. For loop: for i, item in enumerate(...):
+    const forEnumMatch = content.match(/^for\s+([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z0-9_]+)\s+in\s+enumerate\((.*?)\):$/);
+    if (forEnumMatch) {
+      const idxVar = forEnumMatch[1];
+      const valVar = forEnumMatch[2];
+      const iterable = convertPythonExprToJs(forEnumMatch[3]);
+      jsLines.push(
+        ' '.repeat(indent) +
+          `for (let [${idxVar}, ${valVar}] of Array.from(${iterable}).entries()) {\n` +
+          ' '.repeat(indent + 2) +
+          `if (++__loop_iterations > 1000000) throw new Error("Execution timed out: loop iteration limit exceeded");`
+      );
+      indentStack.push(indent + 4);
+      continue;
+    }
+
+    // For loop with unpacked tuple: for dr, dc in directions:
+    const forTupleMatch = content.match(/^for\s+([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z0-9_]+)\s+in\s+(.*?):$/);
+    if (forTupleMatch) {
+      const v1 = forTupleMatch[1];
+      const v2 = forTupleMatch[2];
+      const iterable = convertPythonExprToJs(forTupleMatch[3]);
+      jsLines.push(
+        ' '.repeat(indent) +
+          `for (let [${v1}, ${v2}] of (${iterable})) {\n` +
+          ' '.repeat(indent + 2) +
+          `if (++__loop_iterations > 1000000) throw new Error("Execution timed out: loop iteration limit exceeded");`
+      );
+      indentStack.push(indent + 4);
+      continue;
+    }
+
+    // For loop: for item in items: or for i in range(...):
+    const forRangeMatch = content.match(/^for\s+([a-zA-Z0-9_]+)\s+in\s+range\((.*?)\):$/);
     if (forRangeMatch) {
       const varName = forRangeMatch[1];
       const rangeArgs = forRangeMatch[2].split(',').map((a) => convertPythonExprToJs(a.trim()));
@@ -214,13 +317,13 @@ export function transpilePythonToJs(pythonCode: string): string {
         ' '.repeat(indent) +
           `for (${loopInit}) {\n` +
           ' '.repeat(indent + 2) +
-          `if (++__loop_iterations > 200000) throw new Error("Execution timed out: loop iteration limit exceeded");`
+          `if (++__loop_iterations > 1000000) throw new Error("Execution timed out: loop iteration limit exceeded");`
       );
       indentStack.push(indent + 4);
       continue;
     }
 
-    const forInMatch = jsLine.match(/^for\s+([a-zA-Z0-9_]+)\s+in\s+(.*?):$/);
+    const forInMatch = content.match(/^for\s+([a-zA-Z0-9_]+)\s+in\s+(.*?):$/);
     if (forInMatch) {
       const varName = forInMatch[1];
       const iterable = convertPythonExprToJs(forInMatch[2]);
@@ -228,44 +331,76 @@ export function transpilePythonToJs(pythonCode: string): string {
         ' '.repeat(indent) +
           `for (let ${varName} of (${iterable})) {\n` +
           ' '.repeat(indent + 2) +
-          `if (++__loop_iterations > 200000) throw new Error("Execution timed out: loop iteration limit exceeded");`
+          `if (++__loop_iterations > 1000000) throw new Error("Execution timed out: loop iteration limit exceeded");`
       );
       indentStack.push(indent + 4);
       continue;
     }
 
     // 5. Assert statement: assert expr or assert expr, msg
-    if (jsLine.startsWith('assert ')) {
-      const assertExpr = jsLine.substring(7);
-      // Check if there is a custom message
+    if (content.startsWith('assert ')) {
+      const assertExpr = content.substring(7).trim();
       let expr = assertExpr;
-      let msg = 'AssertionError';
-      const commaIdx = assertExpr.indexOf(',');
-      if (commaIdx !== -1 && !assertExpr.includes('(')) {
-        expr = assertExpr.substring(0, commaIdx);
-        msg = assertExpr.substring(commaIdx + 1).trim();
+      let bracketDepth = 0;
+      let parenDepth = 0;
+      let braceDepth = 0;
+      let inS = false;
+      let inD = false;
+      let splitCommaIdx = -1;
+      for (let c = 0; c < assertExpr.length; c++) {
+        const ch = assertExpr[c];
+        const prev = c > 0 ? assertExpr[c - 1] : '';
+        if (ch === "'" && prev !== '\\' && !inD) inS = !inS;
+        else if (ch === '"' && prev !== '\\' && !inS) inD = !inD;
+        else if (!inS && !inD) {
+          if (ch === '(') parenDepth++;
+          else if (ch === ')') parenDepth = Math.max(0, parenDepth - 1);
+          else if (ch === '[') bracketDepth++;
+          else if (ch === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+          else if (ch === '{') braceDepth++;
+          else if (ch === '}') braceDepth = Math.max(0, braceDepth - 1);
+          else if (ch === ',' && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+            splitCommaIdx = c;
+            break;
+          }
+        }
+      }
+      if (splitCommaIdx !== -1) {
+        expr = assertExpr.substring(0, splitCommaIdx).trim();
       }
 
       // Check if it's "assert a in [1, 2, 3]"
-      const inMatch = expr.match(/(.*?)\s+in\s+(\[.*?\]|.*?)/);
-      if (inMatch && !expr.includes('==')) {
+      const inMatch = expr.match(/^(.*?)\s+in\s+(.*)$/);
+      if (inMatch && !expr.includes('==') && !expr.includes('!=')) {
         const itemVal = convertPythonExprToJs(inMatch[1]);
         const listVal = convertPythonExprToJs(inMatch[2]);
         jsLines.push(
           ' '.repeat(indent) +
-            `if (!(${listVal}).includes(${itemVal})) { throw new Error("AssertionError: assert " + (${itemVal}) + " in " + JSON.stringify(${listVal}) + " failed"); }`
+            `if (!_py_contains(${listVal}, ${itemVal})) { throw new Error("AssertionError: assert " + JSON.stringify(${itemVal}) + " in " + JSON.stringify(${listVal}) + " failed"); }`
         );
         continue;
       }
 
       // Check equality "assert a == b"
-      const eqMatch = expr.match(/(.*?)\s*==\s*(.*)/);
+      const eqMatch = expr.match(/^(.*?)\s*==\s*(.*)$/);
       if (eqMatch) {
         const lhs = convertPythonExprToJs(eqMatch[1]);
         const rhs = convertPythonExprToJs(eqMatch[2]);
         jsLines.push(
           ' '.repeat(indent) +
             `if (!_py_equals(${lhs}, ${rhs})) { throw new Error("AssertionError: assert " + JSON.stringify(${lhs}) + " == " + JSON.stringify(${rhs}) + " failed"); }`
+        );
+        continue;
+      }
+
+      // Check inequality "assert a != b"
+      const neqMatch = expr.match(/^(.*?)\s*!=\s*(.*)$/);
+      if (neqMatch) {
+        const lhs = convertPythonExprToJs(neqMatch[1]);
+        const rhs = convertPythonExprToJs(neqMatch[2]);
+        jsLines.push(
+          ' '.repeat(indent) +
+            `if (_py_equals(${lhs}, ${rhs})) { throw new Error("AssertionError: assert " + JSON.stringify(${lhs}) + " != " + JSON.stringify(${rhs}) + " failed"); }`
         );
         continue;
       }
@@ -279,33 +414,73 @@ export function transpilePythonToJs(pythonCode: string): string {
     }
 
     // 6. Return statement
-    if (jsLine.startsWith('return ') || jsLine === 'return') {
-      const returnExpr = jsLine.substring(7).trim();
-      jsLines.push(' '.repeat(indent) + `return ${returnExpr ? convertPythonExprToJs(returnExpr) : ''};`);
+    if (content.startsWith('return ') || content === 'return') {
+      const returnExpr = content.substring(7).trim();
+      const returnEq = returnExpr.match(/^(.*?)\s*==\s*(.*)$/);
+      if (returnEq) {
+        const lhs = convertPythonExprToJs(returnEq[1]);
+        const rhs = convertPythonExprToJs(returnEq[2]);
+        jsLines.push(' '.repeat(indent) + `return _py_equals(${lhs}, ${rhs});`);
+      } else {
+        jsLines.push(' '.repeat(indent) + `return ${returnExpr ? convertPythonExprToJs(returnExpr) : ''};`);
+      }
       continue;
     }
 
     // 7. General statements & assignments
     // Multiple assignment: a, b = 1, 2
-    const multiAssign = jsLine.match(/^([a-zA-Z0-9_,\s]+)\s*=\s*(.*)$/);
+    const multiAssign = content.match(/^([a-zA-Z0-9_,\s]+)\s*=\s*(.*)$/);
     if (multiAssign && multiAssign[1].includes(',')) {
       const vars = multiAssign[1].split(',').map((v) => v.trim());
-      const val = convertPythonExprToJs(multiAssign[2]);
-      jsLines.push(' '.repeat(indent) + `let [${vars.join(', ')}] = ${val};`);
+      let val = convertPythonExprToJs(multiAssign[2]);
+      let hasTopLevelComma = false;
+      let pD = 0, bD = 0;
+      for (const char of val) {
+        if (char === '(') pD++;
+        else if (char === ')') pD = Math.max(0, pD - 1);
+        else if (char === '[') bD++;
+        else if (char === ']') bD = Math.max(0, bD - 1);
+        else if (char === ',' && pD === 0 && bD === 0) {
+          hasTopLevelComma = true;
+          break;
+        }
+      }
+      if (!val.trim().startsWith('[') && hasTopLevelComma) {
+        val = `[${val}]`;
+      }
+      if (!inFunction) {
+        jsLines.push(' '.repeat(indent) + `let [${vars.join(', ')}] = ${val};`);
+      } else {
+        jsLines.push(' '.repeat(indent) + `[${vars.join(', ')}] = ${val};`);
+      }
+      continue;
+    }
+
+    // Negative index assignment: arr[-1] = ...
+    const negAssign = content.match(/^([a-zA-Z0-9_]+)\[(-[0-9]+)\]\s*=\s*(.*)$/);
+    if (negAssign) {
+      const arrName = negAssign[1];
+      const idxVal = negAssign[2];
+      const val = convertPythonExprToJs(negAssign[3]);
+      jsLines.push(' '.repeat(indent) + `_py_set(${arrName}, ${idxVal}, ${val});`);
       continue;
     }
 
     // Single assignment: x = ...
-    const assignMatch = jsLine.match(/^([a-zA-Z0-9_]+)\s*=\s*(.*)$/);
+    const assignMatch = content.match(/^([a-zA-Z0-9_]+)\s*=\s*(.*)$/);
     if (assignMatch) {
       const varName = assignMatch[1];
       const val = convertPythonExprToJs(assignMatch[2]);
-      jsLines.push(' '.repeat(indent) + `let ${varName} = ${val};`);
+      if (!inFunction) {
+        jsLines.push(' '.repeat(indent) + `let ${varName} = ${val};`);
+      } else {
+        jsLines.push(' '.repeat(indent) + `${varName} = ${val};`);
+      }
       continue;
     }
 
     // Fallback: convert expressions and statement
-    jsLines.push(' '.repeat(indent) + convertPythonExprToJs(jsLine) + ';');
+    jsLines.push(' '.repeat(indent) + convertPythonExprToJs(content) + ';');
   }
 
   // Close remaining open blocks
@@ -331,17 +506,60 @@ function convertPythonExprToJs(expr: string): string {
   // Logical operators
   res = res.replace(/\band\b/g, '&&');
   res = res.replace(/\bor\b/g, '||');
+  res = res.replace(/\bnot\b\s+([a-zA-Z0-9_().[\]]+)/g, '!_py_bool($1)');
   res = res.replace(/\bnot\b\s+/g, '!');
 
   // Identity operators
   res = res.replace(/\bis\s+not\b/g, '!==');
   res = res.replace(/\bis\b/g, '===');
 
-  // Floor division: a // b -> Math.floor(a / b)
-  res = res.replace(/([a-zA-Z0-9_().+\-*]+)\s*\/\/\s*([a-zA-Z0-9_().+\-*]+)/g, 'Math.floor(($1) / ($2))');
+  // 2D Array DP comprehension: [[0] * (n + 1) for _ in range(m + 1)]
+  res = res.replace(
+    /\[\s*\[\s*0\s*\]\s*\*\s*\((.*?)\)\s*for\s+_\s+in\s+range\((.*?)\)\s*\]/g,
+    (m, c1, c2) => `Array.from({ length: ${c2} }, () => Array(${c1}).fill(0))`
+  );
+
+  // Array multiplication: [0] * (n + 1) -> Array(n + 1).fill(0)
+  res = res.replace(/\[\s*(.*?)\s*\]\s*\*\s*([a-zA-Z0-9_().+\-*]+)/g, 'Array($2).fill($1)');
+
+  // Python ternary: a if b else c -> (_py_bool(b) ? (a) : (c))
+  const ternaryMatch = res.match(/^(.*?)\s+if\s+(.*?)\s+else\s+(.*)$/);
+  if (ternaryMatch) {
+    const valTrue = convertPythonExprToJs(ternaryMatch[1]);
+    const cond = convertPythonExprToJs(ternaryMatch[2]);
+    const valFalse = convertPythonExprToJs(ternaryMatch[3]);
+    return `(_py_bool(${cond}) ? (${valTrue}) : (${valFalse}))`;
+  }
+
+  // Floor division: a // b -> Math.floor((a) / (b))
+  const operand = '(?:\\([^)]+\\)|[a-zA-Z0-9_]+(?:\\([^)]*\\))?|\\[[^\\]]*\\]|[a-zA-Z0-9_.]+)';
+  const floorRegex = new RegExp('(' + operand + ')\\s*//\\s*(' + operand + ')', 'g');
+  let prevFloor = '';
+  while (res.includes('//') && res !== prevFloor) {
+    prevFloor = res;
+    res = res.replace(floorRegex, (m, left, right) => {
+      return `Math.floor((${left}) / (${right}))`;
+    });
+  }
 
   // len(x) -> _py_len(x)
-  res = res.replace(/\blen\((.*?)\)/g, '_py_len($1)');
+  res = res.replace(/\blen\((.*?)\)/g, (m, p) => `_py_len(${p})`);
+
+  // list(x) -> Array.from(x)
+  res = res.replace(/\blist\((.*?)\)/g, 'Array.from($1)');
+
+  // sorted(x) -> _py_sorted(x)
+  res = res.replace(/\bsorted\((.*?)\)/g, (m, p) => `_py_sorted(${p})`);
+
+  // sum(x) -> _py_sum(x)
+  res = res.replace(/\bsum\((.*?)\)/g, (m, p) => `_py_sum(${p})`);
+
+  // max(...) / min(...) -> _py_max(...) / _py_min(...)
+  res = res.replace(/\bmax\(/g, '_py_max(');
+  res = res.replace(/\bmin\(/g, '_py_min(');
+
+  // Quicksort list concatenation pattern
+  res = res.replace(/quicksort\(left\)\s*\+\s*middle\s*\+\s*quicksort\(right\)/g, '[].concat(quicksort(left), middle, quicksort(right))');
 
   // Array reverse slicing: x[::-1] -> _py_slice(x, null, null, -1)
   res = res.replace(/([a-zA-Z0-9_]+)\[::-1\]/g, '_py_slice($1, null, null, -1)');
@@ -370,6 +588,8 @@ function convertPythonExprToJs(expr: string): string {
   }
 
   // Method conversions:
+  // .pop(0) -> .shift()
+  res = res.replace(/\.pop\(0\)/g, '.shift()');
   // .append(...) -> .push(...)
   res = res.replace(/\.append\(/g, '.push(');
   // .lower() -> .toLowerCase()
